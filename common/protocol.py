@@ -1,5 +1,49 @@
 import math
 
+TAG_UNDEFINED = 0b0000_0000
+TAG_PLAINTEXT = 0b0000_0001
+# COMPRESSED is masked on top of any other tag
+# to indicate compression and should not be used
+# on its own
+TAG_COMPRESSED = 0b1000_0000
+
+
+# Generates a protocol block containing a plaintext message encoded in UTF-8
+def protocol_encode_plaintext(plaintext):
+    message_bytes = plaintext.encode("utf-8")
+    return protocol_block(TAG_PLAINTEXT, message_bytes)
+
+
+# Reads a protocol block as plaintext if possible, returning a (string, bool) tuple
+# containing the result and success status
+def protocol_decode_plaintext(block):
+    header_length = find_header_end(block)
+    header = block[:header_length]
+    message_length = interpret_header(header)
+    if len(block) != header_length + 1 + message_length:
+        return "", False
+    tag = block[header_length]
+    if tag != TAG_PLAINTEXT:
+        return "", False
+    plaintext = bytes(block[header_length + 1:]).decode("utf-8")
+    return plaintext, True
+
+
+# Generates a protocol block from a type tag and a message byte array
+def protocol_block(tag, message_bytes):
+    block = generate_header(len(message_bytes))
+    block.append(tag)
+    block.extend(message_bytes)
+    return block
+
+
+# Finds the first index of a protocol block that is not a header byte, returning -1 if no end is found
+def find_header_end(block):
+    for i in range(0, len(block)):
+        if block[i] & 0b1000_0000 != 0:
+            return i + 1
+    return -1
+
 
 # Returns a header for a message of the specified length in the form of a byte array
 def generate_header(length):
