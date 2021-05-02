@@ -26,6 +26,32 @@ def generate_header(length):
     return header_bytes
 
 
+# Returns the length represented by a byte array header
+def interpret_header(header):
+    bit_buffer = []
+    decoded_header_bytes = []
+    for byte in header:
+        # Ignore MSB
+        byte &= 0b0111_1111
+        bits = byte_to_bits(byte)
+        for bit in bits:
+            bit_buffer.append(bit)
+            if len(bit_buffer) == 8:
+                assembled_byte = eight_bits_to_byte(bit_buffer)
+                bit_buffer.clear()
+                decoded_header_bytes.append(assembled_byte)
+    length = big_endian_to_int(decoded_header_bytes)
+    return length
+
+
+def big_endian_to_int(be_bytes):
+    accumulator = 0
+    for byte in be_bytes:
+        accumulator *= 128
+        accumulator += byte
+    return accumulator
+
+
 def seven_bits_to_byte(bits):
     exponents = [64, 32, 16, 8, 4, 2, 1]
     byte = 0
@@ -33,6 +59,10 @@ def seven_bits_to_byte(bits):
         if bits[position]:
             byte += exponents[position]
     return byte
+
+
+def eight_bits_to_byte(bits):
+    return (128 if bits[0] else 0) + seven_bits_to_byte(bits[1:])
 
 
 def byte_to_bits(byte):
