@@ -1,4 +1,4 @@
-from protocol import find_header_end, interpret_header, protocol_encode_plaintext, protocol_decode_plaintext
+from .protocol import find_header_end, interpret_header, protocol_encode_plaintext, protocol_decode_plaintext
 import socket
 
 
