@@ -38,6 +38,18 @@ class Connection:
         else:
             return None
 
+    def _recalculate_message_length(self):
+        if len(self._byte_buffer) == 0:
+            self._message_length_expected = -1
+        else:
+            header_end = find_header_end(self._byte_buffer)
+            if header_end >= 0:
+                header = self._byte_buffer[:header_end]
+                length = interpret_header(header)
+                self._message_length_expected = length
+                self._header_buffer.extend(header)
+                self._byte_buffer = self._byte_buffer[header_end:]
+
     def _poll(self):
         if len(self._messages) == 0:
             if self._message_length_expected < 0:
@@ -82,3 +94,4 @@ class Connection:
             self._messages.append((self._byte_buffer[0], block))
             self._byte_buffer = self._byte_buffer[self._message_length_expected + 1:]
             self._message_length_expected = -1
+            self._recalculate_message_length()
