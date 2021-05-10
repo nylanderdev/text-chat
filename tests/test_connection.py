@@ -1,7 +1,7 @@
 import unittest
 import threading
 import socket
-from connection import Connection
+from common.connection import Connection
 
 
 class ServerThread(threading.Thread):

@@ -1,5 +1,5 @@
 import unittest
-from protocol import generate_header, interpret_header, protocol_encode_plaintext, protocol_decode_plaintext
+from common.protocol import generate_header, interpret_header, protocol_encode_plaintext, protocol_decode_plaintext
 
 
 class TestProtocolHeader(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestProtocolPlaintext(unittest.TestCase):
     def test_integrity_hello_world(self):
         text = "Hello world!"
         text_read, succeeded = (protocol_decode_plaintext(protocol_encode_plaintext(text)))
-        self.assert_(succeeded)
+        self.assertTrue(succeeded)
         self.assertEqual(text_read, text)
 
 
