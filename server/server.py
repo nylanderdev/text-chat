@@ -1,11 +1,12 @@
 import socket
 import threading
+from common.connection import Connection
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print('server socket opened')
 
-host = 'localhost'
-port = 9913
+host = "localhost"
+port = 1337
 server.bind((host, port))
 server.listen()
 print('[LISTENING...]')
@@ -15,34 +16,40 @@ clients = []
 
 # method that broadcasts message to all clients
 def broadcast(message):
+    disconnected = []
     for client in clients:
-        client.send(message)
+        try:
+            client.send_plaintext(message)
+        except:
+            print("error sending, dropping client")
+            disconnected.append(client)
+    for client in disconnected:
+        clients.remove(client)
 
 
-def client_socket_handler(client):
+def receive(client, c):
     while True:
         try:
-            message = client.recv(1024)
-            broadcast(message)
+            message = client.recv_plaintext()
+            if message is not None:
+                broadcast(message)
         except:
             # something went wrong, remove the client
+            print("error receiving, dropping client")
             clients.remove(client)
-            client.close()
+            c.close()
             break
 
 
-def receive():
+def start():
     while True:
-        client, ip = server.accept()
-        client.send(bytes('Connected successfully'))
-
-        thread = threading.Thread(target=client_socket_handler, args=(client,))
+        c, ip = server.accept()
+        client = Connection(c)
+        client.send_plaintext("connected!")
+        clients.append(client)
+        thread = threading.Thread(target=receive, args=(client, c))
         thread.start()
+        print('Active Connections: {}'.format(threading.activeCount() - 1))
 
 
-def main():
-    receive()
-
-
-if __name__ == '__main__':
-    main()
+start()

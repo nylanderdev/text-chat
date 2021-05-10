@@ -1,6 +1,6 @@
 from tkinter import *
-from connection import Connection
-import socket
+from common.connection import Connection
+
 
 def chat_client(soc):
     root = Tk()
@@ -24,7 +24,8 @@ def chat_client(soc):
 
     def listen():
         receive()
-        root.after(50,listen)
+        root.after(50, listen)
+
     # add a welcome label
     welcome_label = Label(root, bg="#17202A", fg="white", text="Welcome to this chatroom!",
                           font=("Ostrich Sans", 16, "bold"), pady=10, width=600)
@@ -38,7 +39,8 @@ def chat_client(soc):
     text_rectangle.configure(state=DISABLED)
 
     # add message label
-    message_label = Label(root, text="Write your message below:", font=("Helvetica", 12), anchor='w', bg="#EAECEE").pack(
+    message_label = Label(root, text="Write your message below:", font=("Helvetica", 12), anchor='w',
+                          bg="#EAECEE").pack(
         fill='both')
 
     # add message box and send button

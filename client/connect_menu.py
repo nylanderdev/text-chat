@@ -1,6 +1,6 @@
 from tkinter import *
 from socket import *
-# from connection import Connection
+from .client import chat_client
 
 
 def menu_main():
@@ -18,9 +18,7 @@ def menu_main():
             soc = socket(AF_INET, SOCK_STREAM)
             soc.connect((hostname, 1337))
             root.destroy()
-            # conn = Connection(soc)
-            # Todo: replace with function call, passing conn
-            import client
+            chat_client(soc)
         except:
             # Failed to connect
             hostname_entry.delete(0, END)
