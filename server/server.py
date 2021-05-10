@@ -5,7 +5,7 @@ from common.connection import Connection
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print('server socket opened')
 
-host = "localhost"
+host = "0.0.0.0"
 port = 1337
 server.bind((host, port))
 server.listen()
