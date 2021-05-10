@@ -1,11 +1,68 @@
 import math
 
 TAG_UNDEFINED = 0b0000_0000
+TAG_EVENT = 0b0100_0000
 TAG_PLAINTEXT = 0b0000_0001
 # COMPRESSED is masked on top of any other tag
 # to indicate compression and should not be used
 # on its own
 TAG_COMPRESSED = 0b1000_0000
+
+
+# Encodes a generic with the given params and tags it as the given event type
+def protocol_encode_event(event_type, params):
+    event_bytes = bytearray(event_type.encode("utf-8"))
+    for param in params:
+        event_bytes.extend(b":")
+        event_bytes.extend(bytes(str(len(param)).encode("utf-8")))
+    event_bytes.extend(b"=")
+    for param in params:
+        event_bytes.extend(bytes(str(param).encode("utf-8")))
+    block = generate_header(len(event_bytes))
+    block.append(TAG_EVENT)
+    block.extend(event_bytes)
+    return block
+
+
+# Reads a protocol block as an event if possible, returning a (string, [string], bool) tuple
+# containing the result (event type and params) and success status
+def protocol_decode_event(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type == TAG_EVENT:
+        event_string = bytes(block[header_end + 1:]).decode("utf-8")
+        param_lengths_end = event_string.find("=")
+        if param_lengths_end >= 0:
+            event_type_end = event_string.find(":")
+            event_type = event_string[:event_type_end]
+            param_lengths_str = event_string[event_type_end + 1:param_lengths_end]
+            params_str = event_string[param_lengths_end + 1:]
+            param_lengths = param_lengths_str.split(":")
+            params = []
+            cursor = 0
+            for length in param_lengths:
+                try:
+                    length = int(length)
+                    param = params_str[cursor:cursor + length]
+                    cursor += length
+                    params.append(param)
+                except:
+                    return "", [], False
+            return event_type, params, True
+    return "", [], False
+
+
+def protocol_encode_login(username, password):
+    return protocol_encode_event("login", [username, password])
+
+
+# Reads a protocol block as a login event if possible, returning a (string, string, bool) tuple
+# containing the result (user and password) and success status
+def protocol_decode_login(block):
+    event_type, params, success = protocol_decode_event(block)
+    if success and event_type == "login" and len(params) == 2:
+        return params[0], params[1], True
+    return "", "", False
 
 
 # Generates a protocol block containing a plaintext message encoded in UTF-8
