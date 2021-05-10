@@ -6,7 +6,6 @@ def chat_client(soc):
     root = Tk()
     root.title('tk')
     root.geometry('600x600')
-
     connection = Connection(soc)
 
     def send():
@@ -50,13 +49,3 @@ def chat_client(soc):
 
     listen()
     root.mainloop()
-
-test_soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-print('socket opened')
-
-host = "localhost"
-port = 9913
-ADDR = (host, port)
-test_soc.connect(ADDR)
-print('connected')
-chat_client(test_soc)
