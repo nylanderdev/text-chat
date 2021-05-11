@@ -30,6 +30,7 @@ class TestProtocolPlaintext(unittest.TestCase):
         self.assertTrue(succeeded)
         self.assertEqual(text_read, text)
 
+
 class TestProtocolEvent(unittest.TestCase):
     def test_integrity_login_event_as_generic(self):
         block = protocol_encode_event("login", ["username", "password"])
@@ -51,6 +52,42 @@ class TestProtocolEvent(unittest.TestCase):
         self.assertTrue(succeeded)
         self.assertEqual(username, "username")
         self.assertEqual(password, "password")
+
+    def test_integrity_message_event(self):
+        block = protocol_encode_message(123, "hello world!?")
+        uid, message, succeeded = protocol_decode_message(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(uid, 123)
+        self.assertEqual(message, "hello world!?")
+
+    def test_integrity_file_event(self):
+        block = protocol_encode_file_event(2, 3, "spaceship.gol", 21312, False)
+        uid, fid, filename, filelen, image, succeeded = protocol_decode_file_event(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(uid, 2)
+        self.assertEqual(fid, 3)
+        self.assertEqual(filename, "spaceship.gol")
+        self.assertEqual(filelen, 21312)
+        self.assertFalse(image)
+
+
+class TestProtocolUploadDownload(unittest.TestCase):
+    def test_integrity_upload(self):
+        data = [23, 53, 53, 78, 34, 0, 0, 0, 0, 1, 0]
+        block = protocol_encode_upload(234, data)
+        file_id, data_read, succeeded = protocol_decode_upload(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(file_id, 234)
+        self.assertEqual(data, data_read)
+
+    def test_integrity_download(self):
+        fileid = 342342
+        compressed = True
+        block = protocol_encode_download(fileid, compressed)
+        read_fileid, read_compressed, succeeded = protocol_decode_download(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(read_fileid, fileid)
+        self.assertEqual(compressed, read_compressed)
 
 
 if __name__ == '__main__':
