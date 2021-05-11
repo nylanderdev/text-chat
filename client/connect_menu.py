@@ -1,4 +1,5 @@
 from tkinter import *
+import tkinter.messagebox
 from socket import *
 from .client import chat_client
 
@@ -6,11 +7,17 @@ from .client import chat_client
 def menu_main():
     root = Tk()
     root.title("Connect to server")
-    root.geometry("300x100")
+    root.geometry("300x200")
     Label(root, text="Server:").pack()
     hostname_entry = Entry(root)
     hostname_entry.pack()
-
+    Label(root, text="Username:").pack()
+    username_entry = Entry(root)
+    username_entry.pack()
+    Label(root, text="Password:").pack()
+    password_entry = Entry(root)
+    password_entry.pack()
+    
     def connect():
         hostname = hostname_entry.get()
         try:
@@ -22,7 +29,7 @@ def menu_main():
         except:
             # Failed to connect
             hostname_entry.delete(0, END)
-            hostname_entry.insert(0, "Connection failed!")
+            tkinter.messagebox.showinfo('Oops', 'Connection failed!')
             pass
 
     send_button = Button(root, text="Connect", bg="#5D92B1", fg="white", width=600, height=100, command=connect)
