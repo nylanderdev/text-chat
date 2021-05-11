@@ -1,11 +1,102 @@
 import math
+from .compression import *
+from .bit_util import *
 
 TAG_UNDEFINED = 0b0000_0000
+TAG_EVENT = 0b0100_0000
 TAG_PLAINTEXT = 0b0000_0001
 # COMPRESSED is masked on top of any other tag
 # to indicate compression and should not be used
 # on its own
 TAG_COMPRESSED = 0b1000_0000
+
+
+# Encodes a generic with the given params and tags it as the given event type
+def protocol_encode_event(event_type, params):
+    event_bytes = bytearray(event_type.encode("utf-8"))
+    for param in params:
+        event_bytes.extend(b":")
+        event_bytes.extend(bytes(str(len(param)).encode("utf-8")))
+    event_bytes.extend(b"=")
+    for param in params:
+        event_bytes.extend(bytes(str(param).encode("utf-8")))
+    block = generate_header(len(event_bytes))
+    block.append(TAG_EVENT)
+    block.extend(event_bytes)
+    return block
+
+
+# Reads a protocol block as an event if possible, returning a (string, [string], bool) tuple
+# containing the result (event type and params) and success status
+def protocol_decode_event(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type == TAG_EVENT:
+        event_string = bytes(block[header_end + 1:]).decode("utf-8")
+        param_lengths_end = event_string.find("=")
+        if param_lengths_end >= 0:
+            event_type_end = event_string.find(":")
+            event_type = event_string[:event_type_end]
+            param_lengths_str = event_string[event_type_end + 1:param_lengths_end]
+            params_str = event_string[param_lengths_end + 1:]
+            param_lengths = param_lengths_str.split(":")
+            params = []
+            cursor = 0
+            for length in param_lengths:
+                try:
+                    length = int(length)
+                    param = params_str[cursor:cursor + length]
+                    cursor += length
+                    params.append(param)
+                except:
+                    return "", [], False
+            return event_type, params, True
+    return "", [], False
+
+
+# Compresses a block into a special compressed protocol block, returns block if block is already tagged as compressed
+def protocol_compress(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type & TAG_COMPRESSED != 0:
+        # Already compressed
+        return block
+    data = block[header_end + 1:]
+    compressed_type = block_type | TAG_COMPRESSED
+    compressed_data = compress(data)
+    compressed_block = generate_header(len(compressed_data))
+    compressed_block.append(compressed_type)
+    compressed_block.extend(compressed_data)
+    return compressed_block
+
+
+# Decompresses a block into an uncompressed block, returns block if block is not compressed
+def protocol_decompress(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type & TAG_COMPRESSED == 0:
+        # Uncompressed
+        return block
+    data = block[header_end + 1:]
+    decompressed_type = block_type & 0b0111_1111
+    decompressed_data = decompress(data)
+    decompressed_block = generate_header(len(decompressed_data))
+    decompressed_block.append(decompressed_type)
+    decompressed_block.extend(decompressed_data)
+    return decompressed_block
+
+
+def protocol_encode_login(username, password):
+    return protocol_encode_event("login", [username, password])
+
+
+# Reads a protocol block as a login event if possible, returning a (string, string, bool) tuple
+# containing the result (user and password) and success status
+def protocol_decode_login(block):
+    event_type, params, success = protocol_decode_event(block)
+    if success and event_type == "login" and len(params) == 2:
+        return params[0], params[1], True
+    return "", "", False
 
 
 # Generates a protocol block containing a plaintext message encoded in UTF-8
@@ -86,33 +177,3 @@ def interpret_header(header):
                 decoded_header_bytes.append(assembled_byte)
     length = big_endian_to_int(decoded_header_bytes)
     return length
-
-
-def big_endian_to_int(be_bytes):
-    accumulator = 0
-    for byte in be_bytes:
-        accumulator *= 128
-        accumulator += byte
-    return accumulator
-
-
-def seven_bits_to_byte(bits):
-    exponents = [64, 32, 16, 8, 4, 2, 1]
-    byte = 0
-    for position in range(0, 7):
-        if bits[position]:
-            byte += exponents[position]
-    return byte
-
-
-def eight_bits_to_byte(bits):
-    return (128 if bits[0] else 0) + seven_bits_to_byte(bits[1:])
-
-
-def byte_to_bits(byte):
-    exponents = [128, 64, 32, 16, 8, 4, 2, 1]
-    bits = []
-    for position in range(0, 8):
-        bit = exponents[position] & byte
-        bits.append(bit != 0)
-    return bits

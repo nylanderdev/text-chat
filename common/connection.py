@@ -1,4 +1,4 @@
-from .protocol import find_header_end, interpret_header, protocol_encode_plaintext, protocol_decode_plaintext
+from .protocol import *
 import socket
 
 
@@ -9,12 +9,14 @@ class Connection:
         self._byte_buffer = []
         self._header_buffer = []
         self._messages = []
+        self._messages_by_type = {}
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
     # Receives a plaintext message, if available, else returns None
     def recv_plaintext(self):
-        possible_message = self.recv()
+        self._poll()
+        possible_message = self._pop_by_type(TAG_PLAINTEXT)
         if possible_message is not None:
             plaintext, success = protocol_decode_plaintext(possible_message[1])
             if success:
@@ -25,6 +27,19 @@ class Connection:
     def send_plaintext(self, plaintext):
         self.send(protocol_encode_plaintext(plaintext))
 
+    # Receives an event (a tuple containing an event type and an argument list), if available, else returns None
+    def recv_event(self):
+        self._poll()
+        possible_event = self._pop_by_type(TAG_EVENT)
+        if possible_event is not None:
+            event_type, params, success = protocol_decode_event(possible_event[1])
+            if success:
+                return event_type, params
+        return None
+
+    def send_event(self, event_type, params):
+        self.send(protocol_encode_event(event_type, params))
+
     # Sends a raw list of bytes
     def send(self, block):
         self._socket.send(bytes(block))
@@ -34,9 +49,32 @@ class Connection:
         if len(self._messages) == 0:
             self._poll()
         if len(self._messages) > 0:
-            return self._messages.pop()
+            return self._messages.pop(0)
         else:
             return None
+
+    def _pop_by_type(self, type_mask):
+        if type_mask in self._messages_by_type:
+            if len(self._messages_by_type[type_mask]) > 0:
+                message = self._messages_by_type[type_mask].pop(0)
+                self._messages.remove(message)
+                return message
+        return None
+
+    def _put_message(self, type_and_message):
+        self._messages.append(type_and_message)
+        the_type = type_and_message[0]
+        if the_type not in self._messages_by_type:
+            self._messages_by_type[the_type & 0b0111_1111] = []
+        self._messages_by_type[the_type & 0b0111_1111].append(type_and_message)
+
+    def _pop_message(self):
+        if len(self._messages) > 0:
+            message_type = self._messages[0]
+            message = self._messages.pop(0)
+            self._messages_by_type[message_type & 0b0111_1111].pop(0)
+            return message
+        return None
 
     def _recalculate_message_length(self):
         if len(self._byte_buffer) == 0:
@@ -91,7 +129,7 @@ class Connection:
             block.extend(self._header_buffer)
             block.extend(type_and_message)
             self._header_buffer.clear()
-            self._messages.append((self._byte_buffer[0], block))
+            self._put_message((self._byte_buffer[0], block))
             self._byte_buffer = self._byte_buffer[self._message_length_expected + 1:]
             self._message_length_expected = -1
             self._recalculate_message_length()
