@@ -2,6 +2,7 @@ from .connection import *
 from .protocol import TAG_EVENT, TAG_PLAINTEXT
 
 
+# A tool for managing various connections in an event focused fashion
 class ConnectionHandler:
     def __init__(self):
         self._connection_and_ids = []
@@ -22,6 +23,9 @@ class ConnectionHandler:
     def poll(self):
         for connection, conn_id in self._connection_and_ids:
             type_and_block = connection.recv()
+            if type_and_block[0] & TAG_COMPRESSED != 0:
+                type_and_block[1] = protocol_decompress(type_and_block[1])
+                type_and_block[0] &= 0b0111_1111
             if type_and_block is not None:
                 if type_and_block[0] == TAG_PLAINTEXT:
                     plaintext, success = protocol_decode_plaintext(type_and_block[1])
