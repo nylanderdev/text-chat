@@ -1,4 +1,6 @@
 import math
+from .compression import *
+from .bit_util import *
 
 TAG_UNDEFINED = 0b0000_0000
 TAG_EVENT = 0b0100_0000
@@ -50,6 +52,38 @@ def protocol_decode_event(block):
                     return "", [], False
             return event_type, params, True
     return "", [], False
+
+
+# Compresses a block into a special compressed protocol block, returns block if block is already tagged as compressed
+def protocol_compress(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type & TAG_COMPRESSED != 0:
+        # Already compressed
+        return block
+    data = block[header_end + 1:]
+    compressed_type = block_type | TAG_COMPRESSED
+    compressed_data = compress(data)
+    compressed_block = generate_header(len(compressed_data))
+    compressed_block.append(compressed_type)
+    compressed_block.extend(compressed_data)
+    return compressed_block
+
+
+# Decompresses a block into an uncompressed block, returns block if block is not compressed
+def protocol_decompress(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type & TAG_COMPRESSED == 0:
+        # Uncompressed
+        return block
+    data = block[header_end + 1:]
+    decompressed_type = block_type & 0b0111_1111
+    decompressed_data = decompress(data)
+    decompressed_block = generate_header(len(decompressed_data))
+    decompressed_block.append(decompressed_type)
+    decompressed_block.extend(decompressed_data)
+    return decompressed_block
 
 
 def protocol_encode_login(username, password):
@@ -143,33 +177,3 @@ def interpret_header(header):
                 decoded_header_bytes.append(assembled_byte)
     length = big_endian_to_int(decoded_header_bytes)
     return length
-
-
-def big_endian_to_int(be_bytes):
-    accumulator = 0
-    for byte in be_bytes:
-        accumulator *= 128
-        accumulator += byte
-    return accumulator
-
-
-def seven_bits_to_byte(bits):
-    exponents = [64, 32, 16, 8, 4, 2, 1]
-    byte = 0
-    for position in range(0, 7):
-        if bits[position]:
-            byte += exponents[position]
-    return byte
-
-
-def eight_bits_to_byte(bits):
-    return (128 if bits[0] else 0) + seven_bits_to_byte(bits[1:])
-
-
-def byte_to_bits(byte):
-    exponents = [128, 64, 32, 16, 8, 4, 2, 1]
-    bits = []
-    for position in range(0, 8):
-        bit = exponents[position] & byte
-        bits.append(bit != 0)
-    return bits

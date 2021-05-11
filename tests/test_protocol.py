@@ -21,6 +21,14 @@ class TestProtocolPlaintext(unittest.TestCase):
         self.assertTrue(succeeded)
         self.assertEqual(text_read, text)
 
+    def test_integrity_hello_world_compressed(self):
+        text = "Hello world!"
+        block = protocol_encode_plaintext(text)
+        compressed = protocol_compress(block)
+        decompressed = protocol_decompress(compressed)
+        text_read, succeeded = protocol_decode_plaintext(decompressed)
+        self.assertTrue(succeeded)
+        self.assertEqual(text_read, text)
 
 class TestProtocolEvent(unittest.TestCase):
     def test_integrity_login_event_as_generic(self):
