@@ -4,11 +4,115 @@ from .bit_util import *
 
 TAG_UNDEFINED = 0b0000_0000
 TAG_EVENT = 0b0100_0000
+TAG_UPLOAD = 0b0010_0000
+TAG_DOWNLOAD = 0b0001_0000
 TAG_PLAINTEXT = 0b0000_0001
 # COMPRESSED is masked on top of any other tag
 # to indicate compression and should not be used
 # on its own
 TAG_COMPRESSED = 0b1000_0000
+
+
+# Encodes a download request, using fileid (int), and compression flag (boolean)
+def protocol_encode_download(file_id, compressed):
+    block_data = bytearray(b"")
+    block_data.extend(str(file_id).encode("utf-8"))
+    block_data.extend(b":")
+    if compressed:
+        block_data.extend(b"True")
+    else:
+        block_data.extend(b"False")
+    block = generate_header(len(block_data))
+    block.append(TAG_DOWNLOAD)
+    block.extend(block_data)
+    return block
+
+
+# Reads a protocol block as download request if possible, returning a (int, bool, bool) tuple
+# containing the result (fileid, compression flag) and success status
+def protocol_decode_download(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type == TAG_DOWNLOAD:
+        block_data = block[header_end + 1:]
+        colon_index = block_data.index(58)  # First colon
+        file_id_bytes = block_data[:colon_index]
+        file_id = int(bytes(file_id_bytes).decode("utf-8"))
+        compression_flag_str = bytes(block_data[colon_index + 1:]).decode("utf-8")
+        compression_flag = False
+        if compression_flag_str == "True":
+            compression_flag = True
+        return file_id, compression_flag, True
+    return 0, False, False
+
+
+# Encodes an upload block, using fileid (int), and file data ([byte])
+def protocol_encode_upload(file_id, data):
+    block_data = bytearray(b"")
+    block_data.extend(str(file_id).encode("utf-8"))
+    block_data.extend(b":")
+    block_data.extend(data)
+    block = generate_header(len(block_data))
+    block.append(TAG_UPLOAD)
+    block.extend(block_data)
+    return block
+
+
+# Reads a protocol block as message if possible, returning a (int, [byte], bool) tuple
+# containing the result (fileid, file_data) and success status
+def protocol_decode_upload(block):
+    header_end = find_header_end(block)
+    block_type = block[header_end]
+    if block_type == TAG_UPLOAD:
+        block_data = block[header_end + 1:]
+        colon_index = block_data.index(58)  # First colon
+        file_id_bytes = block_data[:colon_index]
+        file_id = int(bytes(file_id_bytes).decode("utf-8"))
+        file_bytes = block_data[colon_index + 1:]
+        return file_id, file_bytes, True
+    return 0, [], False
+
+
+# Encodes a file event notification, using sender_uid (int), fileid (int), filename (string), filelen (int)
+# and image flag (boolean)
+def protocol_encode_file_event(sender_uid, fileid, filename, filelen, image):
+    return protocol_encode_event("file", [str(sender_uid), str(fileid), filename, str(filelen), str(image)])
+
+
+# Reads a protocol block as message if possible, returning a (int, int, string, bool, bool) tuple
+# containing the result (sender_uid, fileid, filename, filelen and image flag) and success status
+def protocol_decode_file_event(block):
+    event_type, params, succeeded = protocol_decode_event(block)
+    if succeeded and event_type == "file" and len(params) == 5:
+        try:
+            uid = int(params[0])
+            fileid = int(params[1])
+            filename = params[2]
+            filelen = int(params[3])
+            image = params[4] == "True"
+            return uid, fileid, filename, filelen, image, True
+        except:  # Catch any parsing errors
+            pass
+    return 0, 0, "", 0, False, False
+
+
+# Encodes a plaintext message from the sender. Use sender_uid=0 for messages to the server
+def protocol_encode_message(sender_uid, message_text):
+    return protocol_encode_event("message", [str(sender_uid), message_text])
+
+
+# Reads a protocol block as message if possible, returning a (int, string, bool) tuple
+# containing the result (uid and message text) and success status
+def protocol_decode_message(block):
+    event_type, params, succeeded = protocol_decode_event(block)
+    if succeeded and event_type == "message" and len(params) == 2:
+        try:
+            uid = int(params[0])
+            message_text = params[1]
+            return uid, message_text, True
+        except:  # Catch any parsing errors
+            pass
+    return 0, "", False
 
 
 # Encodes a generic with the given params and tags it as the given event type

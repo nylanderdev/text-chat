@@ -8,6 +8,10 @@ class ConnectionHandler:
         self._connection_and_ids = []
         self._on_plaintext = lambda c, i, p: None
         self._on_login = lambda c, i, u, p: None
+        self._on_message = lambda c, i, u, t: None
+        self._on_download = lambda c, i, f, comp: None
+        self._on_file = lambda c, i, u, f, n, l, img: None
+        self._on_upload = lambda c, i, f, d: None
 
     # Registers a connection to be handled and assigns it a non-unique id for future identification.
     def register(self, connection, connection_id):
@@ -23,6 +27,8 @@ class ConnectionHandler:
     def poll(self):
         for connection, conn_id in self._connection_and_ids:
             type_and_block = connection.recv()
+            if type_and_block is None:
+                continue
             if type_and_block[0] & TAG_COMPRESSED != 0:
                 type_and_block[1] = protocol_decompress(type_and_block[1])
                 type_and_block[0] &= 0b0111_1111
@@ -32,9 +38,24 @@ class ConnectionHandler:
                     if success:
                         self._on_plaintext(connection, conn_id, plaintext)
                 elif type_and_block[0] == TAG_EVENT:
-                    username, password, success = protocol_decode_login(type_and_block[1])
-                    if success:
+                    username, password, success_login = protocol_decode_login(type_and_block[1])
+                    uid_msg, message, success_message = protocol_decode_message(type_and_block[1])
+                    sender_uid, fileid, filename, filelen, image, success_file = \
+                        protocol_decode_file_event(type_and_block[1])
+                    if success_login:
                         self._on_login(connection, conn_id, username, password)
+                    elif success_message:
+                        self._on_message(connection, conn_id, uid_msg, message)
+                    elif success_file:
+                        self._on_file(connection, conn_id, sender_uid, fileid, filename, filelen, image)
+                elif type_and_block[0] == TAG_DOWNLOAD:
+                    fid, compressed, success = protocol_decode_download(type_and_block[1])
+                    if success:
+                        self._on_download(connection, conn_id, fid, compressed)
+                elif type_and_block[0] == TAG_UPLOAD:
+                    fid, data, success = protocol_decode_upload(type_and_block[1])
+                    if success:
+                        self._on_upload(connection, conn_id, fid, data)
 
     # Sets a function as handler for plaintext messages. Callback must take three parameters: connection, id,
     # and plaintext, containing the source connection object, its id, and the plaintext received, respectively.
@@ -45,3 +66,28 @@ class ConnectionHandler:
     # and password, containing the source connection object, its id, and the login information received, respectively.
     def set_login_handler(self, callback):
         self._on_login = callback
+
+    # Sets a function as handler for uid-tagged messages. Callback must take four parameters: connection, id,
+    # sender uid, and text containing the source connection object, its id, the sender uid, and the text received,
+    # respectively.
+    def set_message_handler(self, callback):
+        self._on_message = callback
+
+    # Sets a function as handler for file events. Callback must take seven parameters: connection, id,
+    # sender_uid, fileid, filename, filelen, image containing the source connection object, its id,
+    # the sender uid, file id, file name, file length and image flag, respectively.
+    #     # received, respectively.
+    def set_file_event_handler(self, callback):
+        self._on_file = callback
+
+    # Sets a function as handler for download requests. Callback must take four parameters: connection, id,
+    # fileid, and compressed containing the source connection object, its id, the file id, and compression flag
+    # received, respectively.
+    def set_download_handler(self, callback):
+        self._on_download = callback
+
+    # Sets a function as handler for file uploads. Callback must take four parameters: connection, id,
+    # fileid, and data containing the source connection object, its id, the file id, and file bytes
+    # received, respectively.
+    def set_upload_handler(self, callback):
+        self._on_upload = callback
