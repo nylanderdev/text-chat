@@ -13,6 +13,64 @@ class Connection:
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
+    # Receives an event (string, [string])=(type, params) if available, else returns None
+    def recv_event(self):
+        self._poll()
+        possible_event = self._pop_by_type(TAG_EVENT)
+        if possible_event is not None:
+            event_type, params, success = protocol_decode_event(possible_event[1])
+            if success:
+                return event_type, params
+        return None
+
+    # Receives a download request (int, boolean)=(fileid, compressed?) if available, else returns None
+    def recv_download_request(self):
+        self._poll()
+        possible_download = self._pop_by_type(TAG_DOWNLOAD)
+        if possible_download is not None:
+            fid, compressed, success = protocol_decode_download(possible_download[1])
+            if success:
+                return fid, compressed
+        return None
+
+    # Receives an upload (int, [byte])=(fileid, data) if available, else returns None
+    def recv_upload(self):
+        self._poll()
+        possible_upload = self._pop_by_type(TAG_UPLOAD)
+        if possible_upload is not None:
+            fid, data, success = protocol_decode_upload(possible_upload[1])
+            if success:
+                return fid, data
+        return None
+
+    # Sends a uid tagged message (counts as an event)
+    def send_message(self, uid, msg_text):
+        self.send(protocol_encode_message(uid, msg_text))
+
+    # Sends a compressed upload with fileid int and file data [bytes]
+    def send_upload_compressed(self, fid, data):
+        self.send(protocol_compress(protocol_encode_upload(fid, data)))
+
+    # Sends an upload with fileid int and file data [bytes]
+    def send_upload(self, fid, data):
+        self.send(protocol_encode_upload(fid, data))
+
+    # Sends a download request with fileid and compression flag
+    def send_download_request(self, fid, compressed):
+        self.send(protocol_encode_download(fid, compressed))
+
+    # Sends a generic event
+    def send_event(self, event_type, params):
+        self.send(protocol_encode_event(event_type, params))
+
+    # Sends a login event
+    def send_login(self, username, password):
+        self.send(protocol_encode_login(username, password))
+
+    # Sends a file event with sender userid, fileid, filename, filelen, and image flag
+    def send_file_event(self, uid, fid, filename, filelen, imageflag):
+        self.send(protocol_encode_file_event(uid, fid, filename, filelen, imageflag))
+
     # Receives a plaintext message, if available, else returns None
     def recv_plaintext(self):
         self._poll()
@@ -58,6 +116,9 @@ class Connection:
             if len(self._messages_by_type[type_mask]) > 0:
                 message = self._messages_by_type[type_mask].pop(0)
                 self._messages.remove(message)
+                if type_mask & TAG_COMPRESSED != 0:
+                    message = protocol_decompress(message)
+                    type_mask |= 0b0111_1111
                 return message
         return None
 
