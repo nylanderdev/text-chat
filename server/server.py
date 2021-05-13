@@ -13,7 +13,7 @@ server.listen()
 print('[LISTENING...]')
 
 clients = []
-usernames = []
+
 
 # method that broadcasts message to all clients
 def broadcast(message):
