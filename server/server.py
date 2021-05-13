@@ -1,6 +1,7 @@
 import socket
 import threading
 from common.connection import Connection
+from uuid import uuid4
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print('server socket opened')
@@ -12,7 +13,7 @@ server.listen()
 print('[LISTENING...]')
 
 clients = []
-
+usernames = []
 
 # method that broadcasts message to all clients
 def broadcast(message):
@@ -50,6 +51,15 @@ def start():
         thread = threading.Thread(target=receive, args=(client, c))
         thread.start()
         print('Active Connections: {}'.format(threading.activeCount() - 1))
+        generate_unique_id()
+
+
+def generate_unique_id():
+    client_ids = {}
+    for client in clients:
+        unique_id = uuid4()
+        client_ids[client] = unique_id.int
+    print(client_ids)
 
 
 start()
