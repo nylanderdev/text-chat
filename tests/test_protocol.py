@@ -53,6 +53,24 @@ class TestProtocolEvent(unittest.TestCase):
         self.assertEqual(username, "username")
         self.assertEqual(password, "password")
 
+    def test_integrity_registration_event(self):
+        block = protocol_encode_registration("username", "password")
+        username, password, succeeded = protocol_decode_registration(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(username, "username")
+        self.assertEqual(password, "password")
+
+    def test_integrity_accept_event(self):
+        block = protocol_encode_accept()
+        succeeded = protocol_decode_accept(block)
+        self.assertTrue(succeeded)
+
+    def test_integrity_reject_event(self):
+        block = protocol_encode_reject("bad egg")
+        reason, succeeded = protocol_decode_reject(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(reason, "bad egg")
+
     def test_integrity_message_event(self):
         block = protocol_encode_message(123, "hello world!?")
         uid, message, succeeded = protocol_decode_message(block)
@@ -74,10 +92,11 @@ class TestProtocolEvent(unittest.TestCase):
 class TestProtocolUploadDownload(unittest.TestCase):
     def test_integrity_upload(self):
         data = [23, 53, 53, 78, 34, 0, 0, 0, 0, 1, 0]
-        block = protocol_encode_upload(234, data)
-        file_id, data_read, succeeded = protocol_decode_upload(block)
+        block = protocol_encode_upload(234, "hello.world", data)
+        file_id, filename, data_read, succeeded = protocol_decode_upload(block)
         self.assertTrue(succeeded)
         self.assertEqual(file_id, 234)
+        self.assertEqual(filename, "hello.world")
         self.assertEqual(data, data_read)
 
     def test_integrity_download(self):
