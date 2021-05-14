@@ -13,6 +13,44 @@ TAG_PLAINTEXT = 0b0000_0001
 TAG_COMPRESSED = 0b1000_0000
 
 
+def protocol_encode_accept():
+    return protocol_encode_event("accept", [])
+
+
+def protocol_encode_reject(reason=""):
+    return protocol_encode_event("reject", [reason])
+
+
+# Reads a protocol block as an accept event if possible, returning a boolean signifying success status
+def protocol_decode_accept(block):
+    event_type, params, success = protocol_decode_event(block)
+    if success and event_type == "accept" and len(params) == 0:
+        return True
+    return False
+
+
+# Reads a protocol block as a reject event if possible, returning a (string, bool) tuple
+# containing the rejection reason and success status
+def protocol_decode_reject(block):
+    event_type, params, success = protocol_decode_event(block)
+    if success and event_type == "reject" and len(params) == 1:
+        return params[0], True
+    return "", False
+
+
+def protocol_encode_registration(username, password):
+    return protocol_encode_event("registration", [username, password])
+
+
+# Reads a protocol block as a registration event if possible, returning a (string, string, bool) tuple
+# containing the result (user and password) and success status
+def protocol_decode_registration(block):
+    event_type, params, success = protocol_decode_event(block)
+    if success and event_type == "registration" and len(params) == 2:
+        return params[0], params[1], True
+    return "", "", False
+
+
 # Encodes a download request, using fileid (int), and compression flag (boolean)
 def protocol_encode_download(file_id, compressed):
     block_data = bytearray(b"")
@@ -47,9 +85,11 @@ def protocol_decode_download(block):
 
 
 # Encodes an upload block, using fileid (int), and file data ([byte])
-def protocol_encode_upload(file_id, data):
+def protocol_encode_upload(file_id, file_name, data):
     block_data = bytearray(b"")
     block_data.extend(str(file_id).encode("utf-8"))
+    block_data.extend(b":")
+    block_data.extend(file_name.encode("utf-8"))
     block_data.extend(b":")
     block_data.extend(data)
     block = generate_header(len(block_data))
@@ -58,18 +98,21 @@ def protocol_encode_upload(file_id, data):
     return block
 
 
-# Reads a protocol block as message if possible, returning a (int, [byte], bool) tuple
-# containing the result (fileid, file_data) and success status
+# Reads a protocol block as message if possible, returning a (int, string, [byte], bool) tuple
+# containing the result (fileid, filename file_data) and success status
 def protocol_decode_upload(block):
     header_end = find_header_end(block)
     block_type = block[header_end]
     if block_type == TAG_UPLOAD:
         block_data = block[header_end + 1:]
         colon_index = block_data.index(58)  # First colon
+        colon_index2 = block_data[colon_index + 1:].index(58) + colon_index + 1  # Second colon
         file_id_bytes = block_data[:colon_index]
         file_id = int(bytes(file_id_bytes).decode("utf-8"))
-        file_bytes = block_data[colon_index + 1:]
-        return file_id, file_bytes, True
+        file_name_bytes = block_data[colon_index + 1:colon_index2]
+        file_name = bytes(file_name_bytes).decode("utf-8")
+        file_bytes = block_data[colon_index2 + 1:]
+        return file_id, file_name, file_bytes, True
     return 0, [], False
 
 
@@ -140,6 +183,10 @@ def protocol_decode_event(block):
         param_lengths_end = event_string.find("=")
         if param_lengths_end >= 0:
             event_type_end = event_string.find(":")
+            if event_type_end == -1:
+                # No params
+                event_type = event_string[:param_lengths_end]
+                return event_type, [], True
             event_type = event_string[:event_type_end]
             param_lengths_str = event_string[event_type_end + 1:param_lengths_end]
             params_str = event_string[param_lengths_end + 1:]
