@@ -1,4 +1,5 @@
 import math
+import gzip
 from .compression import *
 from .bit_util import *
 
@@ -214,7 +215,7 @@ def protocol_compress(block):
         return block
     data = block[header_end + 1:]
     compressed_type = block_type | TAG_COMPRESSED
-    compressed_data = compress(data)
+    compressed_data = list(gzip.compress(bytes(data)))
     compressed_block = generate_header(len(compressed_data))
     compressed_block.append(compressed_type)
     compressed_block.extend(compressed_data)
@@ -230,7 +231,7 @@ def protocol_decompress(block):
         return block
     data = block[header_end + 1:]
     decompressed_type = block_type & 0b0111_1111
-    decompressed_data = decompress(data)
+    decompressed_data = list(gzip.decompress(bytes(data)))
     decompressed_block = generate_header(len(decompressed_data))
     decompressed_block.append(decompressed_type)
     decompressed_block.extend(decompressed_data)
