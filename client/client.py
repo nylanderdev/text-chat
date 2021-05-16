@@ -8,9 +8,10 @@ from PIL import Image, ImageTk
 
 
 def chat_client(soc):
+    HEIGHT = 800
+    WIDTH = 800
     root = Tk()
     root.title('tk')
-    root.geometry('600x600')
     connection = Connection(soc)
 
     def send():
@@ -49,34 +50,45 @@ def chat_client(soc):
         receive()
         root.after(50, listen)
 
-    # add a welcome label
-    welcome_label = Label(root, bg="#17202A", fg="white", text="Welcome to this chatroom!",
-                          font=("Ostrich Sans", 16, "bold"), pady=10, width=600)
-    welcome_label.pack()
-    # add a divider
-    label = Label(root, bg="black", pady=1, width=600)
-    label.place(relheight=0.01, rely=0.08)
-    # add text rectangle (space where you display the text)
-    text_rectangle = Text(root, width=600, height=16, font=("Helvetica", 14), bg="#17202A", fg="white")
-    text_rectangle.pack(pady=3)
+    canvas = Canvas(root, height=HEIGHT, width=WIDTH)
+    canvas.pack()
+
+    # Welcome banner
+    welcome_banner = Label(root, bd=5, bg="#17202A", fg="white", text="Welcome to this chatroom!",
+                           font=("Ostrich Sans", 16, "bold"))
+    welcome_banner.place(relx=0, rely=0, relwidth=1.0, relheight=0.1)
+    # Upper left frame
+    frame_upper_left = Frame(root, bd=5)
+    frame_upper_left.place(relx=0, rely=0.1, relwidth=0.7, relheight=0.5)
+    text_rectangle = Text(frame_upper_left, font=("Helvetica", 14), bg="#17202A", fg="white")
+    text_rectangle.pack()
     text_rectangle.configure(state=DISABLED)
+    # Chat room frame
+    frame_upper_right = Frame(root, bd=5)
+    frame_upper_right.place(relx=0.7, rely=0.1, relwidth=0.3, relheight=0.5)
+    chat_room = Text(frame_upper_right, bd=1, font=("Helvetica", 14), bg="#17202A", fg="white")
+    chat_room.place(relx=0, rely=0, relwidth=1.0, relheight=0.5)
+    chat_room.configure(state=DISABLED)
+    online_users_frame = Text(frame_upper_right, bd=1, font=("Helvetica", 14), bg="#17202A", fg="white")
+    online_users_frame.place(relx=0, rely=0.5, relwidth=1.0, relheight=0.5)
+    # Message label
+    message_label = Label(root, bd=5, text="Write your message below:", font=("Helvetica", 12), bg="#EAECAE")
+    message_label.place(relx=0, rely=0.6, relwidth=1.0, relheight=0.05)
 
-    # add message label
-    message_label = Label(root, text="Write your message below:", font=("Helvetica", 12), anchor='w',
-                          bg="#EAECEE").pack(
-        fill='both')
-
-    # add message box
-    message_box = Text(root, width=450, height=5, font=("Helvetica", 14), bg="#2C3E50", fg="white")
+    # Input Frame
+    frame_middle = Frame(root, bd=5)
+    frame_middle.place(relx=0, rely=0.65, relwidth=1.0, relheight=0.25)
+    message_box = Text(frame_middle, font=("Helvetica", 14), bg="#2C3E50", fg="white")
+    message_box.pack()
     message_box.bind("<Return>", sende)
-    message_box.pack(pady=1)
-    # make a frame and send button and send image button
-    frame = Frame(root)
-    frame.pack(pady=1)
-    send_button = Button(frame, text="send", bg="#5D92B1", fg="white", width=30, height=10, command=send)
-    send_button.pack(side=tkinter.LEFT)
-    send_image = Button(frame, text="send image", bg="#5D92B1", fg="white", width=30, height=10, command=send_img)
-    send_image.pack(side=tkinter.LEFT, padx=10)
+
+    # Send buttons
+    frame_lower = Frame(root, bd=5)
+    frame_lower.place(relx=0, rely=0.9, relwidth=1.0, relheight=0.1)
+    send_button = Button(frame_lower, text="send", bg="#5D92B1", fg="white", command=send, bd=5)
+    send_button.place(relx=0.3, rely=0.1, relwidth=0.2, relheight=0.8)
+    send_image = Button(frame_lower, text="send image", bg="#5D92B1", fg="white", command=send_img, bd=5)
+    send_image.place(relx=0.5, rely=0.1, relwidth=0.2, relheight=0.8)
 
     listen()
     root.mainloop()
