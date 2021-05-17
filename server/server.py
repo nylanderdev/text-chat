@@ -13,7 +13,7 @@ server.listen()
 print('[LISTENING...]')
 
 clients = []
-
+client_ids = {}
 
 # method that broadcasts message to all clients
 def broadcast(message):
@@ -55,7 +55,6 @@ def start():
 
 
 def generate_unique_id():
-    client_ids = {}
     for client in clients:
         unique_id = uuid4()
         client_ids[client] = unique_id.int
