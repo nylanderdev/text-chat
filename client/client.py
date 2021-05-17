@@ -18,6 +18,7 @@ def chat_client(soc):
     chatrooms = ["General", "Mem", "Inda"]
     chatrooms_labels = []
     current_room = 0
+    images = []
 
     def send():
         msg = message_box.get(1.0, END)
@@ -30,25 +31,46 @@ def chat_client(soc):
 
     #Funktion för att skicka bilder
     def send_img():
-        global new_img
         file_img = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select Image", filetypes=(("JPG", "*.jpg"), ("All", "*.*")))
+        display_image(file_img, "Image User")
+
+    #Function that receives, needs event (Ie event type, for now just numbers)
+    def receive(event):
+        if event == 1:
+            msg_rec = connection.recv_plaintext()
+            user = "Temp"
+            if msg_rec is not None:
+                print(msg_rec)
+                tmp_frame = frame_create(user)
+                tmp_frame.configure(text=tmp_frame.cget("text") + msg_rec)
+                update_scrollbar()
+        if event == 2:
+            img_rec = "connection.recieve_image"
+            display_image(img_rec, user)
+
+    #Function that creates GUI frames for messages
+    def frame_create(sender):
+        text_label = Label(text_rectangle, font=("Helvetica", 11), bg="#17282A", fg="white", bd=5, text=sender + ": ", anchor=NW)
+        text_labels.append(text_label)
+        text_label.pack(side="top", fill="x", pady=1)
+        return text_label
+
+    #Function that displays image, needs img file location, needs sender
+    def display_image(file_img, sender):
         img = Image.open(file_img)
-        img.thumbnail((150,150))
+        img.thumbnail((150, 150))
         new_img = ImageTk.PhotoImage(img)
+        images.append(new_img)
+        tmp_frame = frame_create(sender)
+        tmp_frame.configure(image=new_img, compound=RIGHT)
+        update_scrollbar()
 
-    def receive():
-        msg_rec = connection.recv_plaintext()
-        user = "Temp"
-        if msg_rec is not None:
-            print(msg_rec)
-            text_label = Label(text_rectangle,font=("Helvetica", 12), bg="#17282A", fg="white" , bd=5, text=(user + ": " + msg_rec))
-            text_labels.append(text_label)
-            text_label.pack(side="top", fill="x", pady=1)
-            # Update scrollbar
-            canvas_scroll.update_idletasks()
-            canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all"))
-            canvas_scroll.yview_moveto(1)
-
+    #Function to update scrollbar
+    def update_scrollbar():
+        canvas_scroll.update_idletasks()
+        canvas_scroll.configure(scrollregion=canvas_scroll.bbox("all"))
+        canvas_scroll.yview_moveto(1)
+    #Function for changing chatrooms, needs chatroom id
     def change_rooms(num):
         if num >= len(chatrooms):
             print("To high chatroom index")
@@ -60,6 +82,7 @@ def chat_client(soc):
             for label in chat_room.winfo_children():
                 label.destroy()
             chatrooms_labels = []
+            images = []
             #Make new rooms look nice
             current_room = num
             for i in range(0,len(chatrooms)):
@@ -83,8 +106,13 @@ def chat_client(soc):
         root.after(100, update_users)
 
     def listen():
-        receive()
+        receive(1)
         root.after(50, listen)
+
+    def startup():
+        change_rooms(current_room)
+        update_users()
+        listen()
 
     canvas = Canvas(root, height=HEIGHT, width=WIDTH)
     canvas.pack()
@@ -144,7 +172,5 @@ def chat_client(soc):
     send_image = Button(frame_lower, text="send image", bg="#5D92B1", fg="white", command=send_img, bd=5)
     send_image.place(relx=0.5, rely=0.1, relwidth=0.2, relheight=0.8)
 
-    change_rooms(current_room)
-    update_users()
-    listen()
+    startup()
     root.mainloop()
