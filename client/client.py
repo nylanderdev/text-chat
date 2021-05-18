@@ -79,6 +79,7 @@ def chat_client(connection):
     handler.set_channel_handler(on_channel)
     handler.set_file_event_handler(on_file)
 
+
     def send():
         msg = message_box.get(1.0, END)
         message_box.delete(1.0, END)

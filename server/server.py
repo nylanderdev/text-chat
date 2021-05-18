@@ -10,6 +10,7 @@ file_registry = read_file_registry()
 user_registry = read_user_registry()
 max_user_uuid = running_user_uuid()
 max_file_uuid = running_file_uuid()
+
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print('server socket opened')
 
@@ -182,6 +183,7 @@ def start():
             start = time.time()
             print("[BACKUP]", time.gmtime(start))
             persist_file_registry(file_registry)
+
 
 
 start()

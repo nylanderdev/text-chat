@@ -99,7 +99,6 @@ def menu_main():
     or_label.pack()
     register_button = Button(root, text="Sign up", bg="lightgray", fg="black", command=register)
     register_button.pack()
-
     root.mainloop()
     pass
 
