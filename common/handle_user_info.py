@@ -1,21 +1,32 @@
+import tkinter
+
+
 def login(username, password):
-    correct = False
     file = open("user_info.txt", "r")
     for i in file:
         usr, passwrd = i.split(",")
         passwrd = passwrd.strip()
         if usr == username and passwrd == password:
-            correct = True
-            break
+            return True
     file.close()
-    if not correct:
-        print("Incorrect username or password!")
+
+    tkinter.messagebox.showinfo('Oops', 'Incorrect username or password!')
+    return False
 
 
 def register(username, password):
-    file = open("user_info.txt", "a")
-    file.write(username + "," + password+"\n")
+    file = open("user_info.txt", "r")
+    for i in file:
+        usr, passwrd = i.split(",")
+        passwrd = passwrd.strip()
+        if usr == username and passwrd == password:
+            tkinter.messagebox.showinfo('Oops', 'Username and password already registered!')
+            return False
     file.close()
 
-if __name__ == '__main__':
-    register("hi","hey")
+    file = open("user_info.txt", "a")
+    file.write(username + "," + password + "\n")
+    file.close()
+    return True
+
+

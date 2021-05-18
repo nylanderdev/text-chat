@@ -43,20 +43,29 @@ def menu_main():
             tkinter.messagebox.showinfo('Oops', 'You must login or register first!')
 
     def authenticate_login():
-
-        handle_user_info.login(username_entry.get(), password_entry.get())
-        username_entry.delete(0, END)
-        password_entry.delete(0, END)
-        global login_check
-        login_check = True
+        if handle_user_info.login(username_entry.get(), password_entry.get()):
+            username_entry.delete(0, END)
+            password_entry.delete(0, END)
+            username_entry.insert(0,"success!")
+            password_entry.insert(0, "success!")
+            global login_check
+            login_check = True
+        else:
+            username_entry.delete(0, END)
+            password_entry.delete(0, END)
 
     def register():
+        if handle_user_info.register(username_entry.get(), password_entry.get()):
+            username_entry.delete(0, END)
+            password_entry.delete(0, END)
+            username_entry.insert(0, "success!")
+            password_entry.insert(0, "success!")
+            global register_check
+            register_check = True
+        else:
+            username_entry.delete(0, END)
+            password_entry.delete(0, END)
 
-        handle_user_info.register(username_entry.get(), password_entry.get())
-        username_entry.delete(0, END)
-        password_entry.delete(0, END)
-        global register_check
-        register_check = True
 
     divider = Label(root, width=600)
     divider.pack()
