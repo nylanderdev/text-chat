@@ -14,7 +14,6 @@ def chat_client(connection):
 
     online_users = {}
     usernames_by_uid = {}
-    chatrooms = ["General", "Mem", "Inda"]
     channels = {}
     chatrooms_labels = []
     channel_text_rectangles = {}
@@ -58,7 +57,7 @@ def chat_client(connection):
         channels[channel_id] = channel_name
         if channel_id not in channel_text_rectangles:
             channel_text_rectangles[channel_id] = []
-        update_room_labels()
+        change_rooms(current_room)
 
     def on_file(conn, cid, sender_uid, channel_id, fileid, filename, filelen, image):
         files_by_fid[fileid] = (filename, sender_uid, image, filelen)
@@ -162,7 +161,6 @@ def chat_client(connection):
         root.after(5, listen)
 
     def startup():
-        #update_room_labels()
         update_users()
         root.after(5, listen)
 
