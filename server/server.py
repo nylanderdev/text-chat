@@ -89,6 +89,9 @@ def on_login(client, cid, username, password):
             client_handler.register(client, uid)
             init_client(client)
             broadcast_join(username, uid)
+        else:
+            client.send_plaintext("Invalid login, kicking...")
+            client.send_reject()
     else:
         client.send_plaintext("Invalid login, kicking...")
         client.send_reject()
