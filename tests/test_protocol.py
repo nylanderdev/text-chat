@@ -71,32 +71,55 @@ class TestProtocolEvent(unittest.TestCase):
         self.assertTrue(succeeded)
         self.assertEqual(reason, "bad egg")
 
+    def test_integrity_join_event(self):
+        block = protocol_encode_join("myuser", 53)
+        username, uid, succeeded = protocol_decode_join(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(username, "myuser")
+        self.assertEqual(uid, 53)
+
+    def test_integrity_left_event(self):
+        block = protocol_encode_left(23)
+        uid, succeeded = protocol_decode_left(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(uid, 23)
+
     def test_integrity_message_event(self):
-        block = protocol_encode_message(123, "hello world!?")
-        uid, message, succeeded = protocol_decode_message(block)
+        block = protocol_encode_message(123, "hello world!?", 2)
+        uid, message, channel_id, succeeded = protocol_decode_message(block)
         self.assertTrue(succeeded)
         self.assertEqual(uid, 123)
         self.assertEqual(message, "hello world!?")
+        self.assertEqual(channel_id, 2)
+
+    def test_integrity_channel_event(self):
+        block = protocol_encode_channel("Games and stuff", 2)
+        channel_name, channel_id, succeeded = protocol_decode_channel(block)
+        self.assertTrue(succeeded)
+        self.assertEqual(channel_name, "Games and stuff")
+        self.assertEqual(channel_id, 2)
 
     def test_integrity_file_event(self):
-        block = protocol_encode_file_event(2, 3, "spaceship.gol", 21312, False)
-        uid, fid, filename, filelen, image, succeeded = protocol_decode_file_event(block)
+        block = protocol_encode_file_event(2, 5, 3, "spaceship.gol", 21312, False)
+        uid, chid, fid, filename, filelen, image, succeeded = protocol_decode_file_event(block)
         self.assertTrue(succeeded)
         self.assertEqual(uid, 2)
         self.assertEqual(fid, 3)
         self.assertEqual(filename, "spaceship.gol")
         self.assertEqual(filelen, 21312)
+        self.assertEqual(chid, 5)
         self.assertFalse(image)
 
 
 class TestProtocolUploadDownload(unittest.TestCase):
     def test_integrity_upload(self):
         data = [23, 53, 53, 78, 34, 0, 0, 0, 0, 1, 0]
-        block = protocol_encode_upload(234, "hello.world", data)
-        file_id, filename, data_read, succeeded = protocol_decode_upload(block)
+        block = protocol_encode_upload(234, 21, "hello.world", data)
+        file_id, ch_id, filename, data_read, succeeded = protocol_decode_upload(block)
         self.assertTrue(succeeded)
         self.assertEqual(file_id, 234)
         self.assertEqual(filename, "hello.world")
+        self.assertEqual(ch_id, 21)
         self.assertEqual(data, data_read)
 
     def test_integrity_download(self):

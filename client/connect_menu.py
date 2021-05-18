@@ -1,8 +1,37 @@
 from tkinter import *
 import tkinter.messagebox
 from socket import *
-from common import handle_user_info
+from common.connection import Connection
+from common.handler import ConnectionHandler
 from .client import chat_client
+
+
+def authenticate_connection(conn, username, password):
+    connection_handler = ConnectionHandler()
+    connection_handler.register(conn, 0)
+    response_received = False
+    auth_success = False
+
+    def on_text(client, cid, text):
+        print("[SERVER]", text)
+
+    def on_accept(client, cid):
+        nonlocal response_received, auth_success
+        response_received = True
+        auth_success = True
+
+    def on_reject(client, cid, reason):
+        nonlocal response_received
+        print("[SERVER]", reason)
+        response_received = True
+
+    connection_handler.set_reject_handler(on_reject)
+    connection_handler.set_accept_handler(on_accept)
+    connection_handler.set_plaintext_handler(on_text)
+    conn.send_registration(username, password)
+    while not response_received:
+        connection_handler.poll()
+    return auth_success
 
 
 def menu_main():
@@ -19,66 +48,57 @@ def menu_main():
     password_entry = Entry(root)
     password_entry.pack()
 
-    global login_check
-    login_check = False
-    global register_check
-    register_check = False
-
-    def connect():
-        if login_check or register_check == True:
-
-            hostname = hostname_entry.get()
-            try:
-                # Attempt connection at port 1337
-                soc = socket(AF_INET, SOCK_STREAM)
-                soc.connect((hostname, 1337))
+    def login():
+        hostname = hostname_entry.get()
+        try:
+            # Attempt connection at port 1337
+            soc = socket(AF_INET, SOCK_STREAM)
+            soc.connect((hostname, 1337))
+            connection = Connection(soc)
+            connection.send_login(username_entry.get(), password_entry.get())
+            if authenticate_connection(connection, username_entry.get(), password_entry.get()):
                 root.destroy()
-                chat_client(soc)
-            except:
-                # Failed to connect
-                hostname_entry.delete(0, END)
-                tkinter.messagebox.showinfo('Oops', 'Connection failed!')
-                pass
-        else:
-            tkinter.messagebox.showinfo('Oops', 'You must login or register first!')
-
-    def authenticate_login():
-        if handle_user_info.login(username_entry.get(), password_entry.get()):
-            username_entry.delete(0, END)
-            password_entry.delete(0, END)
-            username_entry.insert(0,"success!")
-            password_entry.insert(0, "success!")
-            global login_check
-            login_check = True
-        else:
-            username_entry.delete(0, END)
-            password_entry.delete(0, END)
+                chat_client(connection)
+            else:
+                tkinter.messagebox.showinfo("Invalid login")
+                soc.close()
+        except Exception as e:
+            print(e)
+            # Failed to connect
+            hostname_entry.delete(0, END)
+            tkinter.messagebox.showinfo('Oops', 'Connection failed!')
+            pass
 
     def register():
-        if handle_user_info.register(username_entry.get(), password_entry.get()):
-            username_entry.delete(0, END)
-            password_entry.delete(0, END)
-            username_entry.insert(0, "success!")
-            password_entry.insert(0, "success!")
-            global register_check
-            register_check = True
-        else:
-            username_entry.delete(0, END)
-            password_entry.delete(0, END)
+        hostname = hostname_entry.get()
+        try:
+            # Attempt connection at port 1337
+            soc = socket(AF_INET, SOCK_STREAM)
+            soc.connect((hostname, 1337))
+            connection = Connection(soc)
+            connection.send_registration(username_entry.get(), password_entry.get())
+            if authenticate_connection(connection, username_entry.get(), password_entry.get()):
+                root.destroy()
+                chat_client(connection)
+            else:
+                tkinter.messagebox.showinfo("Registration failed")
+                soc.close()
+        except Exception as e:
+            print(e)
+            # Failed to connect
+            hostname_entry.delete(0, END)
+            tkinter.messagebox.showinfo('Oops', 'Connection failed!')
+            pass
 
 
     divider = Label(root, width=600)
     divider.pack()
-    login_button = Button(root, text="Login", bg="lightgray", fg="black", command=authenticate_login)
+    login_button = Button(root, text="Sign in", bg="lightgray", fg="black", command=login)
     login_button.pack()
     or_label = Label(root, text="or", width=600, font=("Helvetica", 12))
     or_label.pack()
-    register_button = Button(root, text="register", bg="lightgray", fg="black", command=register)
+    register_button = Button(root, text="Sign up", bg="lightgray", fg="black", command=register)
     register_button.pack()
-    divider = Label(root, width=600)
-    divider.pack()
-    send_button = Button(root, text="Connect", bg="#5D92B1", fg="white", width=600, height=200, command=connect)
-    send_button.pack()
 
     root.mainloop()
     pass

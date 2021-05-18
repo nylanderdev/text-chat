@@ -14,6 +14,44 @@ TAG_PLAINTEXT = 0b0000_0001
 TAG_COMPRESSED = 0b1000_0000
 
 
+def protocol_encode_channel(channel_name, channel_id):
+    return protocol_encode_event("channel", [channel_name, str(channel_id)])
+
+
+def protocol_decode_channel(block):
+    e_type, e_params, e_success = protocol_decode_event(block)
+    if e_success and e_type == "channel" and len(e_params) == 2:
+        channel_name = e_params[0]
+        channel_id = int(e_params[1])
+        return channel_name, channel_id, True
+    return "", 0, False
+
+
+def protocol_encode_left(uid):
+    return protocol_encode_event("left", [str(uid)])
+
+
+def protocol_decode_left(block):
+    e_type, e_params, e_success = protocol_decode_event(block)
+    if e_success and e_type == "left" and len(e_params) == 1:
+        uid = int(e_params[0])
+        return uid, True
+    return 0, False
+
+
+def protocol_encode_join(username, uid):
+    return protocol_encode_event("join", [username, str(uid)])
+
+
+def protocol_decode_join(block):
+    e_type, e_params, e_success = protocol_decode_event(block)
+    if e_success and e_type == "join" and len(e_params) == 2:
+        username = e_params[0]
+        uid = int(e_params[1])
+        return username, uid, True
+    return "", 0, False
+
+
 def protocol_encode_accept():
     return protocol_encode_event("accept", [])
 
@@ -86,9 +124,11 @@ def protocol_decode_download(block):
 
 
 # Encodes an upload block, using fileid (int), and file data ([byte])
-def protocol_encode_upload(file_id, file_name, data):
+def protocol_encode_upload(file_id, chid, file_name, data):
     block_data = bytearray(b"")
     block_data.extend(str(file_id).encode("utf-8"))
+    block_data.extend(b":")
+    block_data.extend(str(chid).encode("utf-8"))
     block_data.extend(b":")
     block_data.extend(file_name.encode("utf-8"))
     block_data.extend(b":")
@@ -108,55 +148,61 @@ def protocol_decode_upload(block):
         block_data = block[header_end + 1:]
         colon_index = block_data.index(58)  # First colon
         colon_index2 = block_data[colon_index + 1:].index(58) + colon_index + 1  # Second colon
+        colon_index3 = block_data[colon_index2 + 1:].index(58) + colon_index2 + 1  # Third colon
         file_id_bytes = block_data[:colon_index]
+        channel_id_bytes = block_data[colon_index + 1:colon_index2]
         file_id = int(bytes(file_id_bytes).decode("utf-8"))
-        file_name_bytes = block_data[colon_index + 1:colon_index2]
+        channel_id = int(bytes(channel_id_bytes).decode("utf-8"))
+        file_name_bytes = block_data[colon_index2 + 1:colon_index3]
         file_name = bytes(file_name_bytes).decode("utf-8")
-        file_bytes = block_data[colon_index2 + 1:]
-        return file_id, file_name, file_bytes, True
-    return 0, [], False
+        file_bytes = block_data[colon_index3 + 1:]
+        return file_id, channel_id, file_name, file_bytes, True
+    return 0, 0, [], False
 
 
-# Encodes a file event notification, using sender_uid (int), fileid (int), filename (string), filelen (int)
-# and image flag (boolean)
-def protocol_encode_file_event(sender_uid, fileid, filename, filelen, image):
-    return protocol_encode_event("file", [str(sender_uid), str(fileid), filename, str(filelen), str(image)])
+# Encodes a file event notification, using sender_uid (int), channel_id (int),
+# fileid (int), filename (string), filelen (int) and imageflag (boolean)
+def protocol_encode_file_event(sender_uid, channel_id, fileid, filename, filelen, imageflag):
+    return protocol_encode_event("file", [str(sender_uid), str(channel_id),
+                                          str(fileid), filename, str(filelen), str(imageflag)])
 
 
-# Reads a protocol block as message if possible, returning a (int, int, string, bool, bool) tuple
-# containing the result (sender_uid, fileid, filename, filelen and image flag) and success status
+# Reads a protocol block as message if possible, returning a (int, int, int, string, bool, bool) tuple
+# containing the result (sender_uid, channel_id, fileid, filename, filelen and image flag) and success status
 def protocol_decode_file_event(block):
     event_type, params, succeeded = protocol_decode_event(block)
-    if succeeded and event_type == "file" and len(params) == 5:
+    if succeeded and event_type == "file" and len(params) == 6:
         try:
             uid = int(params[0])
-            fileid = int(params[1])
-            filename = params[2]
-            filelen = int(params[3])
-            image = params[4] == "True"
-            return uid, fileid, filename, filelen, image, True
+            channel_id = int(params[1])
+            fileid = int(params[2])
+            filename = params[3]
+            filelen = int(params[4])
+            image = params[5] == "True"
+            return uid, channel_id, fileid, filename, filelen, image, True
         except:  # Catch any parsing errors
             pass
-    return 0, 0, "", 0, False, False
+    return 0, 0, 0, "", 0, False, False
 
 
 # Encodes a plaintext message from the sender. Use sender_uid=0 for messages to the server
-def protocol_encode_message(sender_uid, message_text):
-    return protocol_encode_event("message", [str(sender_uid), message_text])
+def protocol_encode_message(sender_uid, message_text, channel_id=0):
+    return protocol_encode_event("message", [str(sender_uid), str(channel_id), message_text])
 
 
 # Reads a protocol block as message if possible, returning a (int, string, bool) tuple
 # containing the result (uid and message text) and success status
 def protocol_decode_message(block):
     event_type, params, succeeded = protocol_decode_event(block)
-    if succeeded and event_type == "message" and len(params) == 2:
+    if succeeded and event_type == "message" and len(params) == 3:
         try:
             uid = int(params[0])
-            message_text = params[1]
-            return uid, message_text, True
+            message_text = params[2]
+            channel_id = int(params[1])
+            return uid, message_text, channel_id, True
         except:  # Catch any parsing errors
             pass
-    return 0, "", False
+    return 0, "", 0, False
 
 
 # Encodes a generic with the given params and tags it as the given event type

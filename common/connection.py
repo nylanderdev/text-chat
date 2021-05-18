@@ -13,6 +13,27 @@ class Connection:
         self._socket.setblocking(False)
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
+    def close(self):
+        self._socket.close()
+        self._socket = None
+
+    def send_channel(self, channel_name, channel_id):
+        self.send(protocol_encode_channel(channel_name, channel_id))
+
+    def send_join(self, username, uid):
+        self.send(protocol_encode_join(username, uid))
+
+    def send_left(self, uid):
+        self.send(protocol_encode_left(uid))
+
+    # Sends an accept event
+    def send_accept(self):
+        self.send(protocol_encode_accept())
+
+    # Sends a reject event with the provided reason, if any
+    def send_reject(self, reason=""):
+        self.send(protocol_encode_reject(reason))
+
     # Receives an event (string, [string])=(type, params) if available, else returns None
     def recv_event(self):
         self._poll()
@@ -44,19 +65,19 @@ class Connection:
         return None
 
     # Sends a uid tagged message (counts as an event)
-    def send_message(self, uid, msg_text):
-        self.send(protocol_encode_message(uid, msg_text))
+    def send_message(self, uid, msg_text, channel_id=0):
+        self.send(protocol_encode_message(uid, msg_text, channel_id))
 
     # Sends a compressed upload with fileid int and file data [bytes]
-    def send_upload_compressed(self, fid, data):
-        self.send(protocol_compress(protocol_encode_upload(fid, data)))
+    def send_upload_compressed(self, fid, chid, filename, data):
+        self.send(protocol_compress(protocol_encode_upload(fid, chid, filename, data)))
 
-    # Sends an upload with fileid int and file data [bytes]
-    def send_upload(self, fid, data):
-        self.send(protocol_encode_upload(fid, data))
+    # Sends an upload with fileid int, filename string and file data [bytes]
+    def send_upload(self, fid, chid, filename, data):
+        self.send(protocol_encode_upload(fid, chid, filename, data))
 
     # Sends a download request with fileid and compression flag
-    def send_download_request(self, fid, compressed):
+    def send_download(self, fid, compressed):
         self.send(protocol_encode_download(fid, compressed))
 
     # Sends a generic event
@@ -67,9 +88,13 @@ class Connection:
     def send_login(self, username, password):
         self.send(protocol_encode_login(username, password))
 
-    # Sends a file event with sender userid, fileid, filename, filelen, and image flag
-    def send_file_event(self, uid, fid, filename, filelen, imageflag):
-        self.send(protocol_encode_file_event(uid, fid, filename, filelen, imageflag))
+    # Sends a registration event
+    def send_registration(self, username, password):
+        self.send(protocol_encode_registration(username, password))
+
+    # Sends a file event with sender userid, channel_id, fileid, filename, filelen, and image flag
+    def send_file_event(self, uid, chid, fid, filename, filelen, imageflag):
+        self.send(protocol_encode_file_event(uid, chid, fid, filename, filelen, imageflag))
 
     # Receives a plaintext message, if available, else returns None
     def recv_plaintext(self):
@@ -84,19 +109,6 @@ class Connection:
     # Sends the given string as a plaintext message
     def send_plaintext(self, plaintext):
         self.send(protocol_encode_plaintext(plaintext))
-
-    # Receives an event (a tuple containing an event type and an argument list), if available, else returns None
-    def recv_event(self):
-        self._poll()
-        possible_event = self._pop_by_type(TAG_EVENT)
-        if possible_event is not None:
-            event_type, params, success = protocol_decode_event(possible_event[1])
-            if success:
-                return event_type, params
-        return None
-
-    def send_event(self, event_type, params):
-        self.send(protocol_encode_event(event_type, params))
 
     # Sends a raw list of bytes
     def send(self, block):
@@ -133,8 +145,7 @@ class Connection:
         if len(self._messages) > 0:
             message_type = self._messages[0]
             message = self._messages.pop(0)
-            self._messages_by_type[message_type & 0b0111_1111].pop(0)
-            return message
+            return self._messages_by_type[message_type & 0b0111_1111].pop(0)
         return None
 
     def _recalculate_message_length(self):

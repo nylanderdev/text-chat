@@ -9,10 +9,7 @@ def login(username, password):
         if usr == username and passwrd == password:
             return True
     file.close()
-
-    tkinter.messagebox.showinfo('Oops', 'Incorrect username or password!')
-    return False
-
+    return correct
 
 def register(username, password):
     file = open("user_info.txt", "r")
@@ -28,5 +25,3 @@ def register(username, password):
     file.write(username + "," + password + "\n")
     file.close()
     return True
-
-
