@@ -2,6 +2,7 @@ import io
 from tkinter import *
 from tkinter import filedialog
 from common.handler import ConnectionHandler
+from pathlib import Path
 import os
 from PIL import Image, ImageTk
 
@@ -41,7 +42,11 @@ def chat_client(connection):
             del pending_image_labels[fid]
         else:
             # Oh god, it's a download prompt... TODO
-            pass
+            save_file = filedialog.asksaveasfile("wb", initialdir=str(os.path.join(Path.home(), "Downloads")),
+                                                 initialfile=name)
+            if save_file is not None:
+                save_file.write(bytes(data))
+                save_file.close()
 
     def on_join(conn, cid, username, uid):
         print("[SERVER] User", str(uid), "joined with name", username)
@@ -64,11 +69,12 @@ def chat_client(connection):
         if image:
             conn.send_download(fileid, False)
             label = frame_create(usernames_by_uid[sender_uid], channel_id)
+            label.bind("<Button 1>", lambda event, client=conn: conn.send_download(fileid, False))
             pending_image_labels[fileid] = label
         else:
-            # TODO: Add detail and link
             frame_create(usernames_by_uid[sender_uid], channel_id,
-                         "<FILE> \"" + filename + "\" @ " + str(filelen/1000) + "KB <FILE>")
+                         "<FILE> \"" + filename + "\" @ " + str(filelen/1000) + "KB <FILE>")\
+                .bind("<Button 1>", lambda event, client=conn: conn.send_download(fileid, False))
         update_scrollbar()
 
     handler.set_message_handler(on_message)

@@ -28,7 +28,6 @@ def authenticate_connection(conn, username, password):
     connection_handler.set_reject_handler(on_reject)
     connection_handler.set_accept_handler(on_accept)
     connection_handler.set_plaintext_handler(on_text)
-    conn.send_registration(username, password)
     while not response_received:
         connection_handler.poll()
     return auth_success
