@@ -26,8 +26,8 @@ def chat_client(connection):
     pending_image_labels = {}
 
     def on_message(conn, cid, uid, text, channel_id):
-        frame_create(usernames_by_uid[uid], channel_id, text)
         print("[DEBUG]", " <", str(uid), ">:", text)
+        frame_create(usernames_by_uid[uid], channel_id, text)
         update_scrollbar()
 
     def on_upload(conn, cid, fid, chid, name, data):
@@ -55,9 +55,13 @@ def chat_client(connection):
 
     def on_left(conn, cid, uid):
         print("[SERVER] User", str(uid), "left")
-        del online_users[uid]
+        if uid in online_users:
+            del online_users[uid]
 
     def on_channel(conn, cid, channel_name, channel_id):
+        nonlocal current_room
+        if current_room == 0:
+            current_room = channel_id
         print("[SERVER] Channel", channel_id, "with name", channel_name)
         channels[channel_id] = channel_name
         if channel_id not in channel_text_rectangles:
@@ -139,6 +143,7 @@ def chat_client(connection):
         for label in chat_room.winfo_children():
             label.destroy()
         update_room_labels()
+        update_scrollbar()
 
     def update_room_labels():
         for channel_id, channel_name in channels.items():
