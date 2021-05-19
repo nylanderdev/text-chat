@@ -8,6 +8,12 @@ from common.handler import ConnectionHandler
 guarantee_complete_store()
 file_registry = read_file_registry()
 user_registry = read_user_registry()
+channel_registry = read_channel_registry()
+channel_registry[1] = "General"
+channel_registry[2] = "Misc"
+channel_registry[3] = "Categories"
+channel_registry[4] = "Meta"
+persist_channel_registry(channel_registry)
 max_user_uuid = running_user_uuid()
 max_file_uuid = running_file_uuid()
 
@@ -26,14 +32,27 @@ client_handler = ConnectionHandler()
 clients = []
 client_ids = {}
 id_name_map = {}
+online_counts = {}
 for username, (password, uid) in user_registry.items():
     id_name_map[uid] = username
 
 
 def init_client(client):
-    client.send_channel("General", 0)
-    client.send_channel("Misc", 1)
+    client_id = client_ids[client]
+    if client_id not in online_counts:
+        online_counts[client_id] = 0
+    online_counts[client_id] += 1
+    send_all_names(client)
     send_online_joins(client)
+    for ch_id, ch_name in channel_registry.items():
+        client.send_channel(ch_name, ch_id)
+        send_archived_channel(ch_id, client)
+
+
+def send_all_names(client):
+    for name, (_p, uid) in user_registry.items():
+        client.send_join(name, uid)
+        client.send_left(uid)
 
 
 def send_online_joins(client_joining):
@@ -63,6 +82,8 @@ def on_upload(client, cid, fid, chid, name, data):
             print("Failed to send, kicking client")
             lost.append(client)
     disconnect_clients(lost)
+    persist_channel_registry(channel_registry)
+    log_file_event(chid, uid, fid)
 
 
 def on_download(client, cid, fid, compressed):
@@ -141,6 +162,8 @@ def on_message(client, cid, uid, text, channel_id):
             print("Failed to send, kicking client")
             lost.append(client)
     disconnect_clients(lost)
+    persist_channel_registry(channel_registry)
+    log_message(channel_id, cid, text)
 
 
 awaiting_handler.set_login_handler(on_login)
@@ -164,8 +187,10 @@ def disconnect_clients(clients_to_remove):
     for client in clients_to_remove:
         client_handler.unregister(client)
         clients.remove(client)
+        online_counts[client_ids[client]] -= 1
     for client in clients_to_remove:
-        broadcast_left(client_ids[client])
+        if online_counts[client_ids[client]] == 0:
+            broadcast_left(client_ids[client])
 
 
 def start():
